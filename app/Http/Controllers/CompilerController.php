@@ -273,18 +273,15 @@ class CompilerController extends Controller
             return [null, "Expected expression, got '{$t['value']}' at line {$t['line']}"];
         };
 
-        // parse loop: statement (';')*
         while ($i < $n) {
             $t = $next();
             if (!$t) break;
 
-            // تخطي فاصلة منقوطة زائدة لو موجودة
             if ($t['type'] === 'PUNC' && $t['value'] === ';') {
                 $eat('PUNC', ';');
                 continue;
             }
 
-            // print <expr> ;
             if ($t['type'] === 'KEYWORD' && $t['value'] === 'print') {
                 $eat('KEYWORD', 'print');
                 [$expr, $err] = $parseExpr();
@@ -301,7 +298,6 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // cout << <expr> (<< <expr>)* ;
             if ($t['type'] === 'KEYWORD' && $t['value'] === 'cout') {
                 $start = $eat('KEYWORD', 'cout');
                 $parts = [];
@@ -309,7 +305,6 @@ class CompilerController extends Controller
                     $errors[] = "Expected '<<' after cout at line {$start['line']}";
                     break;
                 }
-                // first expr
                 [$expr, $err] = $parseExpr();
                 if ($err) {
                     $errors[] = $err;
@@ -317,7 +312,6 @@ class CompilerController extends Controller
                 }
                 $parts[] = $expr;
 
-                // more << expr
                 while (true) {
                     $t2 = $next();
                     if ($t2 && $t2['type'] === 'OP' && $t2['value'] === '<<') {
@@ -340,7 +334,6 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // غير معروف
             $errors[] = "Unexpected token '{$t['value']}' at line {$t['line']}, col {$t['col']}";
             break;
         }
@@ -348,12 +341,6 @@ class CompilerController extends Controller
         return [$ast, $errors];
     }
 
-    /**
-     * CodeGen بسيط:
-     * - Print: MOV R1, <val> ; OUT R1
-     * - Cout chain: لكل جزء → MOV/LOAD ثم OUT
-     * Machine code افتراضي (opcode 4-bit + reg 4-bit + imm4-bit للبساطة)
-     */
     private function codeGen(array $ast): array
     {
         $assembly = [];
@@ -384,16 +371,14 @@ class CompilerController extends Controller
         return [$assembly, $machine];
     }
 
-    // imm من التعبير (string → طولها كديمو، identifier → 0)
     private function exprToImm(array $expr)
     {
         $t = $expr['value'];
         if ($t['type'] === 'NUMBER') return (int)$t['value'];
-        if ($t['type'] === 'STRING') return strlen($t['value']); // ديمو: طوّل النص
-        return 0; // IDENTIFIER → ديمو
+        if ($t['type'] === 'STRING') return strlen($t['value']);
+        return 0;
     }
 
-    // opcode ترميز ديمو
     private function op(string $mn, int $reg, int $imm): string
     {
         $opc = [
@@ -402,7 +387,7 @@ class CompilerController extends Controller
         ][$mn] ?? '1111';
 
         $r = str_pad(decbin($reg), 4, '0', STR_PAD_LEFT);
-        $im = str_pad(decbin(max(0, min(15, $imm))), 4, '0', STR_PAD_LEFT); // 4-bit imm ديمو
+        $im = str_pad(decbin(max(0, min(15, $imm))), 4, '0', STR_PAD_LEFT);
         return "$opc $r $im";
     }
 }
