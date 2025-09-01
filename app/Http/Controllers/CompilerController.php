@@ -39,7 +39,6 @@ class CompilerController extends Controller
             ]);
         }
 
-        // Codegen بسيط (DSL/mini-C++-like → Assembly افتراضي → Machine code افتراضي)
         [$assembly, $machine] = $this->codeGen($ast);
 
         return response()->json([
@@ -51,12 +50,6 @@ class CompilerController extends Controller
             'status'   => 'Success'
         ]);
     }
-
-    /**
-     * Lexer مطوّر:
-     * - يدعم: identifiers, numbers, strings (مع escape), operators متعددة الحروف, punctuation, comments
-     * - يرجّع (type, value, line, col)
-     */
     private function lexicalAnalysis(string $code): array
     {
         $i = 0;
@@ -66,7 +59,6 @@ class CompilerController extends Controller
         $tokens = [];
         $errors = [];
 
-        // ترتيب مهم: جرّبي الأطول أولاً
         $operators = [
             '<<',
             '>>',
@@ -93,7 +85,6 @@ class CompilerController extends Controller
         while ($i < $len) {
             $ch = $code[$i];
 
-            // تخطي مسافات و newlines
             if (ctype_space($ch)) {
                 if ($ch === "\n") {
                     $line++;
