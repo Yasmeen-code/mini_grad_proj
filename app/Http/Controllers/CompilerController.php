@@ -11,7 +11,6 @@ class CompilerController extends Controller
         $code = (string) $request->input('code', '');
         [$tokens, $lexErrors] = $this->lexicalAnalysis($code);
 
-        // لو في أخطاء Lexical نرجع بدري
         if (!empty($lexErrors)) {
             return response()->json([
                 'tokens' => $tokens,
@@ -20,12 +19,8 @@ class CompilerController extends Controller
             ]);
         }
 
-        // Parse بسيط: يدعم
-        // 1) print 5;  أو print "hi";
-        // 2) cout << "Hello" << x;
         [$ast, $parseErrors] = $this->parseMini($tokens);
 
-        // تجميل رسالة مع اقتراح بسيط (AI-lite)
         $parseErrors = array_map(function ($e) {
             if (str_contains($e, "Unexpected token 'prnt'")) {
                 return $e . " — هل تقصد 'print' ؟";
