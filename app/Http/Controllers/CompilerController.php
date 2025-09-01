@@ -96,16 +96,14 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // تعليقات: // حتى آخر السطر
             if ($ch === '/' && $i + 1 < $len && $code[$i + 1] === '/') {
-                // skip to endline
+
                 while ($i < $len && $code[$i] !== "\n") {
                     $i++;
                     $col++;
                 }
                 continue;
             }
-            // تعليقات: /* ... */
             if ($ch === '/' && $i + 1 < $len && $code[$i + 1] === '*') {
                 $i += 2;
                 $col += 2;
@@ -132,7 +130,6 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // String literal: " ... " مع دعم escape \" و \\n
             if ($ch === '"') {
                 $startLine = $line;
                 $startCol = $col;
@@ -142,7 +139,7 @@ class CompilerController extends Controller
                 $closed = false;
                 while ($i < $len) {
                     $c = $code[$i];
-                    if ($c === '\\') { // escape
+                    if ($c === '\\') {
                         if ($i + 1 < $len) {
                             $next = $code[$i + 1];
                             $map = ["n" => "\n", "t" => "\t", "r" => "\r", "\\" => "\\", "\"" => "\""];
@@ -181,7 +178,6 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // Operators (الأطول أولاً)
             $matchedOp = null;
             foreach ($operators as $op) {
                 $L = strlen($op);
@@ -197,7 +193,6 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // Punctuation
             if (in_array($ch, $punct, true)) {
                 $tokens[] = ['type' => 'PUNC', 'value' => $ch, 'line' => $line, 'col' => $col];
                 $i++;
@@ -205,7 +200,6 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // Number (int/float بسيط)
             if (ctype_digit($ch)) {
                 $startLine = $line;
                 $startCol = $col;
