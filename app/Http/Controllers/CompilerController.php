@@ -220,7 +220,6 @@ class CompilerController extends Controller
                 continue;
             }
 
-            // Identifier / Keyword
             if (ctype_alpha($ch) || $ch === '_') {
                 $startLine = $line;
                 $startCol = $col;
@@ -230,13 +229,12 @@ class CompilerController extends Controller
                     $col++;
                 }
                 $word = substr($code, $start, $i - $start);
-                $kw = ['print', 'if', 'end', 'else', 'let', 'var', 'cout']; // زوّدي براحتك
+                $kw = ['print', 'if', 'end', 'else', 'let', 'var', 'cout'];
                 $type = in_array($word, $kw, true) ? 'KEYWORD' : 'IDENTIFIER';
                 $tokens[] = ['type' => $type, 'value' => $word, 'line' => $startLine, 'col' => $startCol];
                 continue;
             }
 
-            // حرف غير معروف
             $errors[] = "Unexpected character '{$ch}' at line $line, col $col";
             $i++;
             $col++;
@@ -245,12 +243,6 @@ class CompilerController extends Controller
         return [$tokens, $errors];
     }
 
-    /**
-     * Parse بسيط لستيتمنت واحدة في كل سطر (Separated by ';'):
-     * - print <expr> ;
-     * - cout << <expr> (<< <expr>)* ;
-     * expr := STRING | NUMBER | IDENTIFIER
-     */
     private function parseMini(array $tokens): array
     {
         $i = 0;
