@@ -19,126 +19,45 @@ class CodeController extends Controller
             $file = storage_path('app/code.cpp');
             file_put_contents($file, $code);
 
+            // Store input in temporary file
+            $inputFile = storage_path('app/input.txt');
+            $input = $request->input('input', '');
+            file_put_contents($inputFile, $input);
+
             // Generate assembly code with Intel syntax for better readability
             $asmFile = storage_path('app/code.s');
-            $compileOutput = shell_exec("g++ \"$file\" -S -masm=intel -O0 -o \"$asmFile\" 2>&1");
+            $asmCompileOutput = shell_exec("g++ \"$file\" -S -masm=intel -O0 -o \"$asmFile\" 2>&1");
+
+            // Compile the code
+            $exeFile = storage_path('app/code.exe');
+            $compileOutput = shell_exec("g++ \"$file\" -o \"$exeFile\" 2>&1");
             if ($compileOutput) {
                 // Compilation failed
                 $output = "Compilation Error:\n" . $compileOutput;
+                $visualization = null;
             } else {
-                // Read the assembly code
-                $assembly = file_get_contents($asmFile);
-
-                // Extract only the main function for simplicity
-                $lines = explode("\n", $assembly);
-                $inMain = false;
-                $mainAssembly = [];
-
-                foreach ($lines as $line) {
-                    if (strpos($line, '_main:') !== false) {
-                        $inMain = true;
-                        $mainAssembly[] = $line;
-                    } elseif ($inMain) {
-                        if (strpos($line, 'ret') !== false) {
-                            $mainAssembly[] = $line;
-                            break;
-                        } elseif (trim($line) !== '' && !preg_match('/^\s*\./', $line)) {
-                            $mainAssembly[] = $line;
-                        }
-                    }
-                }
-
-                $output = implode("\n", $mainAssembly);
-                if (empty($output)) {
-                    $output = $assembly; // Fallback to full assembly if main not found
-                } else {
-                    // Extract strings and variables from C++ code for dynamic data section
-                    $strings = [];
-                    $variables = [];
-
-                    // Extract strings from cout statements
-                    preg_match_all('/cout\s*<<\s*"([^"]*)"/', $code, $matches);
-                    if (!empty($matches[1])) {
-                        $strings = $matches[1];
-                    }
-
-                    // Extract variables (simple int declarations)
-                    preg_match_all('/int\s+(\w+)\s*=\s*(\d+)/', $code, $varMatches);
-                    if (!empty($varMatches[1])) {
-                        for ($i = 0; $i < count($varMatches[1]); $i++) {
-                            $variables[$varMatches[1][$i]] = $varMatches[2][$i];
-                        }
-                    }
-
-                    // Format as NASM
-                    $nasmOutput = "bits 32\n";
-                    $nasmOutput .= "global main\n";
-                    $nasmOutput .= "extern printf\n";
-                    $nasmOutput .= "extern scanf\n";
-                    $nasmOutput .= "\n";
-
-                    // Dynamic data section
-                    $nasmOutput .= "section .data\n";
-                    foreach ($strings as $index => $str) {
-                        $nasmOutput .= "    str{$index} db '{$str}', 10, 0\n";
-                    }
-                    foreach ($variables as $name => $value) {
-                        $nasmOutput .= "    {$name} dd {$value}\n";
-                    }
-                    if (empty($strings) && empty($variables)) {
-                        $nasmOutput .= "    ; No data defined\n";
-                    }
-                    $nasmOutput .= "\n";
-
-                    $nasmOutput .= "section .text\n";
-                    $nasmOutput .= "main:\n";
-
-                    // Convert instructions to NASM style, filtering out library calls
-                    foreach ($mainAssembly as $line) {
-                        if (strpos($line, '_main:') !== false) {
-                            continue; // Skip the label
-                        }
-                        // Skip library calls and complex C++ runtime calls
-                        if (
-                            preg_match('/call\s+__/', $line) ||
-                            preg_match('/call\s+___/', $line) ||
-                            preg_match('/OFFSET FLAT:/', $line) ||
-                            preg_match('/lea\s+ecx,\s*\[esp\+4\]/', $line) ||
-                            preg_match('/and\s+esp,\s*-16/', $line) ||
-                            preg_match('/push\s+DWORD PTR \[ecx-4\]/', $line) ||
-                            preg_match('/lea\s+esp,\s*\[ecx-4\]/', $line) ||
-                            preg_match('/LFB\d+:/', $line) ||
-                            preg_match('/LC\d+:/', $line) ||
-                            preg_match('/push\s+ebp/', $line) ||
-                            preg_match('/mov\s+ebp,\s*esp/', $line) ||
-                            preg_match('/mov\s+esp,\s*ebp/', $line) ||
-                            preg_match('/pop\s+ebp/', $line) ||
-                            preg_match('/sub\s+esp,\s*\d+/', $line) ||
-                            preg_match('/mov\s+ecx,\s*DWORD PTR \[ebp-4\]/', $line) ||
-                            preg_match('/leave/', $line)
-                        ) {
-                            continue;
-                        }
-                        // Keep only simple instructions like mov, add, cmp, etc.
-                        if (preg_match('/^\s*(mov|add|sub|cmp|jmp|je|jne|jg|jl|jge|jle|push|pop|ret|lea|and|or|xor|inc|dec|imul|idiv)\s+/i', $line)) {
-                            $nasmOutput .= "    " . $line . "\n";
-                        }
-                    }
-
-                    $output = $nasmOutput;
-                }
+                // Run the executable with input redirected
+                $output = shell_exec("\"$exeFile\" < \"$inputFile\" 2>&1");
+                $visualization = null;
             }
         } else {
             // Store code in temporary Python file
             $file = storage_path('app/code.py');
             file_put_contents($file, $code);
 
-            // Execute code using python
-            $output = shell_exec("python \"$file\" 2>&1");
+            // Store input in temporary file
+            $inputFile = storage_path('app/input.txt');
+            $input = $request->input('input', '');
+            file_put_contents($inputFile, $input);
+
+            // Execute code using python with input redirected
+            $output = shell_exec("python \"$file\" < \"$inputFile\" 2>&1");
+            $visualization = null;
         }
 
         return response()->json([
-            'output' => $output
+            'output' => $output,
+            'visualization' => $visualization
         ]);
     }
 
